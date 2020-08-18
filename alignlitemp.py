@@ -1,5 +1,5 @@
 import numpy as np
-import multiprocessing
+from multiprocessing import Pool, cpu_count
 
 import pyximport
 pyximport.install(setup_args={"include_dirs":np.get_include()},build_dir="build", build_in_temp=False)
@@ -202,51 +202,59 @@ with open(args.fullpath_file, 'r') as wfile:
 
 # eval_path = Path(args.eval_path)
 
-def do_the_alignment(full_io_file):
-    print(full_io_file)
-    for i, (path_wav, text_infile, npz_file, text_outfile) in enumerate([full_io_file]): #data_path.glob("*.wav"): 
-        path_wav = Path(path_wav)
-        text_infile = Path(text_infile)
-        npz_file = Path(npz_file)
-        text_outfile = Path(text_outfile)
-        if args.chop>0:
-            text_outfile = text_outfile.with_suffix(f'.chp{args.chop}')
-        text_outfile.parent.mkdir(parents=True, exist_ok=True)
+def do_the_alignment(full_io_line):
+    path_wav, text_infile, npz_file, text_outfile = full_io_line
+    i = 0
+    print(f"Inside with {text_outfile}")
+    path_wav = Path(path_wav)
+    text_infile = Path(text_infile)
+    npz_file = Path(npz_file)
+    text_outfile = Path(text_outfile)
+    if os.path.exists(text_outfile):
+        print(f"Skipping {text_outfile} as already done")
+        continue
+    if args.chop>0:
+        text_outfile = text_outfile.with_suffix(f'.chp{args.chop}')
+    text_outfile.parent.mkdir(parents=True, exist_ok=True)
 
-        chapter_sents = text_infile # data_path / path_wav.name.replace(".wav", ".txt")
-        chapter_prob = npz_file # eval_path / path_wav.name.replace(".wav", ".npz")
-        out_path = text_outfile # eval_path / path_wav.name.replace(".wav", ".txt")
+    chapter_sents = text_infile # data_path / path_wav.name.replace(".wav", ".txt")
+    chapter_prob = npz_file # eval_path / path_wav.name.replace(".wav", ".npz")
+    out_path = text_outfile # eval_path / path_wav.name.replace(".wav", ".txt")
 
-        with open(str(chapter_sents), "r") as f:
-            text = [t.strip() for t in f.readlines()]
-        if args.chop>0:
-            text = text[args.chop:~args.chop]
-        lpz = np.load(str(chapter_prob))["arr_0"]
+    with open(str(chapter_sents), "r") as f:
+        text = [t.strip() for t in f.readlines()]
+    if args.chop>0:
+        text = text[args.chop:~args.chop]
+    lpz = np.load(str(chapter_prob))["arr_0"]
 
-        print("Syncing " + str(path_wav), out_path)
-                           
-        ground_truth_mat, utt_begin_indices = prepare_text(text)
+    print("Syncing " + str(path_wav), out_path)
+                       
+    ground_truth_mat, utt_begin_indices = prepare_text(text)
 
-        try:
-            timings, char_probs, char_list = align(lpz, train_args.char_list, ground_truth_mat, utt_begin_indices, max_prob)
-        except AssertionError:
-            print("Skipping: Audio is shorter than text")
-            continue
-        try:
-            write_output(out_path, utt_begin_indices, char_probs, path_wav, text, timings)
-        except IndexError:
-            print("Last segments omitted")
+    try:
+        timings, char_probs, char_list = align(lpz, train_args.char_list, ground_truth_mat, utt_begin_indices, max_prob)
+    except AssertionError:
+        print("Skipping: Audio is shorter than text")
+        continue
+    try:
+        write_output(out_path, utt_begin_indices, char_probs, path_wav, text, timings)
+    except IndexError:
+        print("Last segments omitted")
 
 print(f"Total files: ", len(full_io_file))
+#NPROC = 10
+#processes = []
+#for i in range(0, len(full_io_file), NPROC):
+#    p = multiprocessing.Process(target=do_the_alignment, args = [full_io_file[i:i+NPROC]])
+#    p.start()
+#    processes.append(p)
+print(f"Processing Parallel on {cpu_count()} cores..")
 
-processes = []
-for i in range(0, len(full_io_file), NPROC):
-    p = multiprocessing.Process(target=do_the_alignment, args = [full_io_file[i:i+NPROC]])
-    p.start()
-    processes.append(p)
-print("Processing joining..")
+#for process in processes:
+#    p.join()
 
-for process in processes:
-    p.join()
+with Pool() as pool:
+    pool.map(do_the_alignment, full_io_file)
+
 
 print("Done alignment")
