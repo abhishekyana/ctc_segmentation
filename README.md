@@ -79,7 +79,7 @@ python align.py exp/tedlium2_rnn/model.acc.best data/tedlium_dev eval/tedlium_de
 
 ## Pathfile:
 
-When using the scipt with a path file, there is no need to move the data and text files into a single folder. So this path files explicitely informs the script to search for wav file, input text file at certain paths.
+When using the scipt with a path file, there is no need to move the data and text files into a single folder. So this path files explicitly informs the script to search for wav file, input text file at certain paths.
 
 format: MetaData/data_fullpath.file format. 
 ```
