@@ -74,8 +74,7 @@ Finally align / segment the audio. This step will apply our ctc segmentation alg
 ```
 python align.py exp/tedlium2_rnn/model.acc.best data/tedlium_dev eval/tedlium_dev_tedlium2_rnn
 ```
-
-@abhishekyana
+#### additions(from here): @abhishekyana
 
 ## Pathfile:
 
